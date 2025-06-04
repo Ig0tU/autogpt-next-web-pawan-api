@@ -1,0 +1,157 @@
+#!/bin/bash
+
+# Add error handling and exit on failure
+set -e
+
+# Add check for git repository
+if [ ! -d .git ]; then
+    echo "Error: Not a git repository. Please run this script from the root of your git repository."
+    exit 1
+fi
+
+# Backup existing files before modification
+[ -f next.config.js ] && cp next.config.js next.config.js.backup
+[ -f src/utils/config.ts ] && cp src/utils/config.ts src/utils/config.ts.backup
+[ -f README.md ] && cp README.md README.md.backup
+
+# Update next.config.js with security headers
+cat << EOF > next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  env: {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    OPENAI_API_BASE_URL: process.env.OPENAI_API_BASE_URL,
+  },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-XSS-Protection', value: '1; mode=block' },
+        ],
+      },
+    ];
+  },
+}
+
+module.exports = nextConfig
+EOF
+
+# Update config.ts with error handling
+if [ ! -f src/utils/config.ts ]; then
+    echo "Error: config.ts not found in src/utils/"
+    exit 1
+fi
+
+sed -i.bak 's|const BASE_URL = "https://api.openai.com"|const BASE_URL = process.env.OPENAI_API_BASE_URL || "https://api.pawan.krd/v1"|g' src/utils/config.ts
+
+# Update README.md
+cat << EOF > README.md
+# AutoGPT-Next-Web (Pawan API Edition)
+
+One-Click to deploy well-designed AutoGPT-Next-Web web UI on Vercel, using Pawan's API.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FIg0tU%2FAutoGPT-Next-Web&project-name=autogpt-next-web&repository-name=AutoGPT-Next-Web)
+
+## Features
+1. Free one-click deployment with Vercel
+2. Pre-configured to use Pawan's API - no OpenAI API key required
+3. Streaming responses for faster interactions
+4. Mobile-friendly interface
+5. Enhanced security headers
+
+## Usage
+1. Click the "Deploy with Vercel" button above
+2. Follow the Vercel deployment process
+3. Once deployed, you can start using the app immediately without any additional configuration
+
+## Development
+To run this project locally:
+
+1. Clone the repository
+\`\`\`bash
+git clone
+cd AutoGPT-Next-Web
+\`\`\`
+
+2. Install dependencies
+\`\`\`bash
+npm install
+\`\`\`
+
+3. Create a \`.env.local\` file with:
+\`\`\`
+OPENAI_API_KEY=your_pawan_api_key
+OPENAI_API_BASE_URL=https://api.pawan.krd/v1
+\`\`\`
+
+4. Start the development server
+\`\`\`bash
+npm run dev
+\`\`\`
+
+## Security Features
+- Enhanced HTTP security headers
+- Environment variable protection
+- Automatic backup system
+- Error handling and validation
+
+## License
+This project is licensed under the MIT License.
+EOF
+
+# Create .env file
+cat << EOF > .env
+OPENAI_API_KEY=your_pawan_api_key
+OPENAI_API_BASE_URL=https://api.pawan.krd/v1
+EOF
+
+# Create .env.local for development
+cp .env .env.local
+
+# Update .gitignore
+if [ ! -f .gitignore ]; then
+    touch .gitignore
+fi
+
+# Add necessary entries to .gitignore
+echo ".env" >> .gitignore
+echo ".env.local" >> .gitignore
+echo "*.env" >> .gitignore
+echo "*.backup" >> .gitignore
+echo "node_modules" >> .gitignore
+echo ".next" >> .gitignore
+echo ".DS_Store" >> .gitignore
+
+# Git operations with error handling
+if ! git add .; then
+    echo "Error: Failed to stage changes"
+    exit 1
+fi
+
+if ! git commit -m "Update for Pawan API configuration with enhanced security and error handling"; then
+    echo "Error: Failed to commit changes"
+    exit 1
+fi
+
+if ! git push origin main; then
+    echo "Error: Failed to push changes"
+    exit 1
+fi
+
+# Success message with next steps
+echo "✅ Successfully updated configuration files and pushed changes!"
+echo ""
+echo "🔒 Security features implemented:"
+echo "  - Enhanced HTTP headers"
+echo "  - Environment variable protection"
+echo "  - Backup system"
+echo "  - Error handling"
+echo ""
+echo "📝 Next steps:"
+echo "1. Update your API key in .env.local"
+echo "2. Run 'npm install' if you haven't already"
+echo "3. Start your development server with 'npm run dev'"
